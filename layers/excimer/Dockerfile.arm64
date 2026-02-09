@@ -1,5 +1,5 @@
 # ARM64 only: official PHP image (fast build). Layout matches Bref so COPY --from= works.
-ARG PHP_TAG
+ARG PHP_TAG=8.4
 FROM php:${PHP_TAG}-cli AS ext
 
 RUN apt-get update && apt-get install -y --no-install-recommends git \
