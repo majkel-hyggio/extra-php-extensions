@@ -16,8 +16,9 @@ endef
 # ARM64: lightweight Dockerfile.arm64 (official php image). Only gd + excimer, PHP 84.
 ARM64_PHP_VERSIONS = 84
 define build_docker_image_arm
+	$(eval PHP_TAG := $(shell echo ${2} | sed 's/^\(.\)\(.\)$$/\1.\2/'))
 	docker build -f ${1}/Dockerfile.arm64 -t bref/${1}-php-${2} \
-		--build-arg PHP_VERSION=${2} \
+		--build-arg PHP_TAG=$(PHP_TAG) \
 		--platform linux/arm64 \
 		${DOCKER_BUILD_FLAGS} ${1}
 endef

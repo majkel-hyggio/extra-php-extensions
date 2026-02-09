@@ -1,6 +1,5 @@
 # ARM64 only: official PHP image (fast build). Layout matches Bref so COPY --from= works.
-ARG PHP_VERSION
-ENV PHP_TAG="${PHP_VERSION:0:1}.${PHP_VERSION:1:1}"
+ARG PHP_TAG
 FROM php:${PHP_TAG}-cli AS ext
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
