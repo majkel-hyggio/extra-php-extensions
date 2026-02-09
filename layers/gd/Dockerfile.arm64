@@ -1,0 +1,24 @@
+# ARM64 only: official PHP image (fast build). Layout matches Bref so COPY --from= works.
+ARG PHP_VERSION
+ENV PHP_TAG="${PHP_VERSION:0:1}.${PHP_VERSION:1:1}"
+FROM php:${PHP_TAG}-cli AS ext
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libwebp-dev libxpm-dev libpng-dev libjpeg-dev libfreetype6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN docker-php-ext-configure gd \
+    --with-freetype --with-jpeg --with-webp --with-xpm \
+    && docker-php-ext-install -j"$(nproc)" gd \
+    && cp "$(php-config --extension-dir)/gd.so" /tmp/gd.so \
+    && echo 'extension=gd.so' > /tmp/ext.ini
+
+RUN mkdir -p /tmp/extension-libs \
+    && for f in $(ldd /tmp/gd.so 2>/dev/null | awk '/=>/ {print $3}'); do \
+        [ -f "$$f" ] && case "$$f" in /usr/*) cp "$$f" /tmp/extension-libs/ ;; esac; \
+    done || true
+
+FROM scratch
+COPY --from=ext /tmp/gd.so /opt/bref/extensions/gd.so
+COPY --from=ext /tmp/ext.ini /opt/bref/etc/php/conf.d/ext-gd.ini
+COPY --from=ext /tmp/extension-libs /opt/lib
