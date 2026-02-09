@@ -1,0 +1,73 @@
+# Build and push multi-arch (amd64 + arm64) for gd + excimer only. One tag for local (x86) and Lambda (arm64).
+# Amd64 from official Bref; arm64 built here with official PHP image. ~5 min total.
+#
+# Secrets: DOCKER_USERNAME, DOCKER_PASSWORD
+# Vars or input: DOCKER_IMAGE_PREFIX (default: DOCKER_USERNAME)
+
+name: Deploy Docker images (multi-arch gd, excimer)
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: 'Docker tag (e.g. 1.8.6)'
+        required: true
+        default: '1.8.6'
+      image_prefix:
+        description: 'Docker Hub image prefix (default: DOCKER_USERNAME)'
+        required: false
+
+jobs:
+  multi-arch:
+    name: Build and push amd64 + arm64
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image prefix
+        id: vars
+        run: |
+          if [ -n "${{ inputs.image_prefix }}" ]; then p="${{ inputs.image_prefix }}"
+          elif [ -n "${{ vars.DOCKER_IMAGE_PREFIX }}" ]; then p="${{ vars.DOCKER_IMAGE_PREFIX }}"
+          else p="${{ secrets.DOCKER_USERNAME }}"
+          fi
+          echo "prefix=$$p" >> $GITHUB_OUTPUT
+
+      - name: Docker login
+        run: echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
+
+      - name: Build amd64 (gd, excimer PHP 8.4)
+        run: |
+          make docker-images layer=gd php_versions=84
+          make docker-images layer=excimer php_versions=84
+
+      - name: Push amd64 images
+        run: |
+          for name in gd excimer; do
+            docker tag bref/layers/$name-php-84:latest ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-amd64
+            docker push ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-amd64
+          done
+
+      - name: Build arm64 (gd, excimer PHP 8.4)
+        run: |
+          make docker-images-arm layer=gd
+          make docker-images-arm layer=excimer
+
+      - name: Push arm64 images
+        run: |
+          for name in gd excimer; do
+            docker tag bref/layers/$name-php-84:latest ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-arm64
+            docker push ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-arm64
+          done
+
+      - name: Create multi-arch manifest
+        run: |
+          for name in gd excimer; do
+            docker buildx imagetools create -t ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }} \
+              ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-amd64 \
+              ${{ steps.vars.outputs.prefix }}/extra-$name-php-84:${{ inputs.docker_tag }}-arm64
+          done
