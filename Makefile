@@ -15,13 +15,6 @@ endef
 
 # ARM64: lightweight Dockerfile.arm64 (official php image). Only gd + excimer, PHP 84.
 ARM64_PHP_VERSIONS = 84
-define build_docker_image_arm
-	$(eval PHP_TAG := $(shell echo ${2} | sed 's/^\(.\)\(.\)$$/\1.\2/'))
-	docker build -f ${1}/Dockerfile.arm64 -t bref/${1}-php-${2} \
-		--build-arg PHP_TAG=$(PHP_TAG) \
-		--platform linux/arm64 \
-		${DOCKER_BUILD_FLAGS} ${1}
-endef
 
 docker-images:
 	if [ "${layer}" != "*" ]; then test -d layers/${layer}; fi
@@ -44,8 +37,12 @@ docker-images-arm:
 	for dir in layers/${layer}; do \
 		[ -f "$${dir}/Dockerfile.arm64" ] || { echo "### Skipping $${dir} (no Dockerfile.arm64)"; continue; }; \
 		for php_version in $(ARM64_PHP_VERSIONS); do \
-			echo "### Building ARM64 $${dir} PHP$${php_version}"; \
-			$(call build_docker_image_arm,$${dir},$${php_version}); \
+			php_tag=$$(echo $$php_version | sed 's/^\(.\)\(.\)$$/\1.\2/'); \
+			echo "### Building ARM64 $${dir} PHP$${php_version} (php:$${php_tag}-cli)"; \
+			docker build -f $${dir}/Dockerfile.arm64 -t bref/$${dir}-php-$${php_version} \
+				--build-arg PHP_TAG=$${php_tag} \
+				--platform linux/arm64 \
+				${DOCKER_BUILD_FLAGS} $${dir}; \
 			echo ""; \
 		done \
 	done
