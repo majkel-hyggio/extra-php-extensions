@@ -1,6 +1,8 @@
 ARG PHP_VERSION
 ARG BREF_VERSION
-FROM bref/build-php-$PHP_VERSION:$BREF_VERSION AS ext
+# For ARM64 (Graviton) use your own image built from Bref aws-lambda-layers (e.g. myuser/bref-build-php-84:2)
+ARG BREF_BUILD_IMAGE
+FROM ${BREF_BUILD_IMAGE} AS ext
 
 # Install required build libraries
 RUN set -ue \
